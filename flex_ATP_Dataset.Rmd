@@ -1,0 +1,612 @@
+---
+title: "ATP Dataset"
+output:
+  flexdashboard::flex_dashboard:
+    storyboard: true
+---
+
+```{r}
+library(flexdashboard)
+library(wordcloud)
+library(RColorBrewer)
+library(wordcloud2)
+library(janitor)
+library(openxlsx)
+library(tidyverse)
+library(plotly)
+library(ggmap)
+library(prob)
+library(sampling)
+library(data.table)
+library(dplyr)
+library(ggplot2)
+library(readr)
+library(ggthemes)
+library(magrittr)
+library(dplyr)
+library(jsonlite)
+library(maptools)
+library(leaflet)
+
+
+
+#Reading regional files
+
+atp <- read.csv(file.choose(),header = T) ## ## Please choose the written csv file ATP, name of the file is ATP
+
+match_level <- c("G","M","F")
+
+atp1 <- atp[atp$tourney_level %in% match_level,]
+
+atp2 <- atp1[atp1$tourney_date > 19910000,]
+
+atp3 <- atp2[atp2$round == "F",]
+
+atp4 <- atp3[ , -which(names(atp3) %in% c("winner_entry","loser_entry"))]
+
+atp4$minutes[atp4$minutes == ""] <- 190
+
+atp4$w_ace[atp4$w_ace == ""] <- 0
+atp4$w_df[atp4$w_df == ""] <- 0
+atp4$w_bpSaved[atp4$w_bpSaved == ""] <- 0
+atp4$w_bpFaced[atp4$w_bpFaced == ""] <- 0
+atp4$l_ace[atp4$l_ace == ""] <- 0
+atp4$l_df[atp4$l_df == ""] <- 0
+atp4$l_bpSaved[atp4$l_bpSaved == ""] <- 0
+atp4$l_bpFaced[atp4$l_bpFaced == ""] <- 0
+
+write.csv(atp4,"C:\\Users\\gtiwa\\OneDrive\\Documents\\R\\ATPDATASET1.csv", row.names = FALSE)
+
+atpdatset <- read.csv(file.choose(),header = T)## Please choose the written csv file ATPDATASET1, name of the file is ATPDATASET1
+
+
+```
+
+### Number of winners per copuntry
+
+```{r}
+k<-atpdatset %>%
+  distinct(winner_name, winner_ioc) %>%
+  group_by(winner_ioc) %>%
+  summarize("Distinct players of a country" = n())
+#k
+
+data <- data.frame(k)
+
+data$winner_ioc <- factor(data$winner_ioc, levels = unique(data$winner_ioc)[order(data$Distinct.players.of.a.country, decreasing = TRUE)])
+
+
+plot_ly(data, x = ~data$winner_ioc, y = ~data$Distinct.players.of.a.country, type = 'bar', color = ~data$winner_ioc,
+        hoverinfo = 'text',
+        hovertext = ~paste0(data$Distinct.players.of.a.country, ' ', data$winner_ioc))%>% layout(title = "Distinct Winners as per country",
+        xaxis = list(title = "Country"),yaxis = list(title = "Number of distinct winners"))
+
+
+```
+### What is the distribution of aces by the different type of surfaces?
+
+```{r}
+acesnetfinals <- rowSums(atpdatset[, c("w_ace", "l_ace")])
+#acesnetfinals
+data <- data.frame(atpdatset$surface, atpdatset$w_ace, atpdatset$l_ace, acesnetfinals)
+#data
+
+plot_ly(data, x = ~data$atpdatset.surface, y = ~data$acesnetfinals, type = 'box', color = ~data$atpdatset.surface,
+        hoverinfo = 'text',
+        hovertext = ~paste0(data$acesnetfinals, ' ', data$atpdatset.surface))%>% layout(title = "Distribution of aces as per surface",
+        xaxis = list(title = "Type of surface"),yaxis = list(title = "Total no. of aces in final"))
+
+
+```
+
+### Serving Stats
+```{r}
+
+k1<-atpdatset %>%
+  distinct(w_ace, winner_name) %>%
+  group_by(winner_name) %>%
+  summarize("Most number of aces in finals" = n())
+
+k2<-atpdatset %>%
+  distinct(w_df, winner_name) %>%
+  group_by(winner_name) %>%
+  summarize("Most number of df in finals" = n())
+
+k3<-atpdatset %>%
+  distinct(w_bpSaved, winner_name) %>%
+  group_by(winner_name) %>%
+  summarize("Most number of bp saved in finals" = n())
+
+k4<-atpdatset %>%
+  distinct(w_bpFaced, winner_name) %>%
+  group_by(winner_name) %>%
+  summarize("Most number of bp faced in finals" = n())
+
+data1 <- data.frame(k1,k1$`Most number of aces in finals` ,k2$`Most number of df in finals`, k3$`Most number of bp saved in finals`, k4$`Most number of bp faced in finals`)
+
+library(plotly)
+
+
+
+p1 <- plot_ly(data1, x = ~data1$winner_name, y = ~data1$k2..Most.number.of.df.in.finals.) %>%
+  add_lines(name = ~"Most Number of Double Faults in the finals")%>% layout(
+                                                                            xaxis = list(title = "Tournament Winners"),yaxis = list(title = "values",range(0,20)))
+p2 <- plot_ly(data1, x = ~data1$winner_name, y = ~data1$k3..Most.number.of.bp.saved.in.finals.) %>%
+  add_lines(name = ~"Most number of BP saved in the finals")%>% layout(
+                                                                       xaxis = list(title = "Tournament Winners"),yaxis = list(title = "values",range(0,20)))
+p3 <- plot_ly(data1, x = ~data1$winner_name, y = ~data1$k4..Most.number.of.bp.faced.in.finals.) %>%
+  add_lines(name = ~"Most number of BP faced in the finals")%>% layout(
+                                                                       xaxis = list(title = "Tournament Winners"),yaxis = list(title = "values",range(0,20)))
+p4 <- plot_ly(data1, x = ~data1$winner_name, y = ~data1$Most.number.of.aces.in.finals) %>%
+  add_lines(name = ~"Most number of aces in the finals")%>% layout(
+                                                                   xaxis = list(title = "Tournament Winners"),yaxis = list(title = "values",range(0,20)))
+p <- subplot(p1, p2, p3, p4, nrows = 2, shareX = TRUE, shareY =TRUE)%>%layout(title = 'Serving Stats of the Winners of ATP tournament')
+annotations = list( 
+  list(x= 0.2, y = 1,text = "Number of Double Faults in the finals",xref = "paper", yref = "paper",  xanchor = "center",  yanchor = "bottom", showarrow = FALSE ),list(x= 0.8, y = 1,text = "Number of bp saved",xref = "paper", yref = "paper",  xanchor = "center",  yanchor = "bottom", showarrow = FALSE ),list(x= 0.2, y = 0.45,text = "Number of bp faced",xref = "paper", yref = "paper",  xanchor = "center",  yanchor = "bottom", showarrow = FALSE ),list(x= 0.8, y = 0.45,text = "Number of aces",xref = "paper", yref = "paper",  xanchor = "center",  yanchor = "bottom", showarrow = FALSE )
+)
+p <- p%>%layout(annotations = annotations)
+p
+
+```
+
+
+### Distribution of winner aces based on winner's hand as per the surface
+
+```{r}
+library(ggplot2)
+
+dfwa <- atpdatset %>% group_by(winner_hand,surface)%>% summarise(totalacesperhandpersurface = sum(w_ace))
+
+
+dfwb <- atpdatset %>% group_by(winner_hand)%>% summarise(totalacesperhand = sum(w_ace))
+
+
+dfdat <- left_join(dfwa, dfwb)
+
+
+dfdat$perc <- dfdat$totalacesperhandpersurface/dfdat$totalacesperhand * 100
+
+
+plot_ly(x = dfdat$winner_hand, y = dfdat$perc, color = dfdat$surface, text=c(dfdat$totalacesperhandpersurface),textposition = 'auto',hoverinfo = 'text') %>%
+  add_bars() %>%
+  layout(barmode = "stack")%>% layout(title = "Number of aces hit by surfaces as per their style of play",
+                                      xaxis = list(title = "Style of play()Left handed vs Right handed"),yaxis = list(title = "Distribution of aces as per surface in percentage", ticksuffix ="%"))
+
+
+
+
+```
+
+### Tournaments played on each court
+
+```{r}
+library(ggplot2)
+library(readr)
+library(ggthemes)
+library(dplyr)
+
+k1<- atpdatset %>% count(atpdatset$surface)
+
+k1$`atpdatset$surface` <- factor(k1$`atpdatset$surface`, levels = unique(k1$`atpdatset$surface`)[order(k1$n, decreasing = TRUE)])
+
+plot_ly(x = k1$`atpdatset$surface`,
+        y = k1$n, type = "bar", color = k1$`atpdatset$surface`, colors = "Dark2")%>% layout(title = " Number of Tournaments played as per surface",
+                                                                                            xaxis = list(title = "Surface"),yaxis = list(title = "Total number of matches played"))
+
+
+```
+
+### Scatter Plot between Winners height and winners ace
+
+```{r}
+p11 <- plot_ly(type = "scatter",
+               x = ~atpdatset$winner_ht,
+               y = ~atpdatset$w_ace,
+               mode = "markers",
+               marker = list(size = (10)
+                            )) %>% 
+  layout(title = "Winners Height vs total ace hit in the finals",
+         xaxis = list(title = "Winner Height"),
+         yaxis = list(title = "Winners Ace"))
+
+p11
+
+```
+
+### Players with most tournament wins in the given period
+
+```{r}
+library(dplyr)
+total_wins <- atpdatset %>% group_by(winner_name)%>%
+  summarize(total_wins = n())%>%
+  arrange(desc(total_wins))
+
+top_10_df <-  head(total_wins, n=10)
+#top_10_df
+
+top_10_df$winner_name <- factor(top_10_df$winner_name, levels = unique(top_10_df$winner_name)[order(top_10_df$total_wins, decreasing = TRUE)])
+
+top10 <- plot_ly(x = top_10_df$winner_name,
+              y = top_10_df$total_wins,
+              color = top_10_df$winner_name,
+              colors = "Dark2",
+              type = "bar") %>%layout(xaxis = list(dtick = 1))%>% layout(title = "Number of Tournament won by different Tournament Winners",
+                                                                         xaxis = list(title = "Tournament Winners"),yaxis = list(title = "Tournament won"))
+top10
+
+
+
+```
+### Summary of the winners rank at the time of tournament win countrywise
+
+```{r}
+p8 <- plot_ly(data = atpdatset,x = ~winner_ioc,
+              y = ~winner_rank,
+              color = ~winner_ioc,
+              colors = "Dark2",
+              type = "box")%>% layout(title = "Summary of the winners rank at the time of tournament win countrywise",
+                                      xaxis = list(title = "Country"),yaxis = list(title = "Summary of Rank", range = c(0,60)))
+p8
+
+
+
+```
+### Winners Break point with age distribution as per surface
+
+```{r}
+library(ggplot2)
+library(ggthemes)
+library(data.table)
+#head(atpdatset)
+atp1sub <- atpdatset[c("winner_age","w_bpSaved","surface")]
+#head(atp1sub)
+#pl <- ggplot(atp1sub,aes(x=winner_age,y=w_bpSaved,color=surface)) + geom_point(size=3,shape=1)
+#pl
+
+pl1 <- plot_ly(data= atp1sub, x=atp1sub$winner_age, y= atp1sub$w_bpSaved, color = atp1sub$surface,colors = "Dark2", type   = 'scatter', 
+               mode   = 'markers',
+               marker = list(size = atp1sub$w_bpSaved*3),opacity = 0.6,symbol = atp1sub$surface, symbols = c('circle','x','o','square'))%>% layout(title = "Distribution of breakpoint saved as per age of the winners",
+                                                                                     xaxis = list(title = "Age of the winners"),yaxis = list(title = "bp_saved"))
+pl1
+
+```
+
+### Distribution of Winner's age of the countries having more than 10 wins
+
+```{r}
+datacountry <- names(which(table(atpdatset$winner_ioc) > 10))
+wins15country <- subset(atpdatset, winner_ioc %in% datacountry)
+
+
+#=========================================
+#Main dataset for distribution of wins
+#DISTRIBUTION THROUGH HISTOGRAM
+#=========================================
+
+library(plotly)
+
+
+#Wins distribution of USA by age
+mysubset <- subset(wins15country, winner_ioc %in% "USA")
+#table(round(mysubset$winner_age, 0))
+o <- round(mysubset$winner_age, 0)
+#hist(o, ylim = c(0, 30), breaks = seq(15, 39, 3), xaxp=c(15, 39, 8), main = "Winners age distribution of USA by age", xlab = "Ages", ylab = "No. of winners", col="Light Blue")
+graph1 <- plot_ly(x = o, type = "histogram", marker= list(color="E45756"), name = "Winners age distribution of USA by age")%>%layout(xaxis = list(title = 'Winner Age'), yaxis = list(title = 'NO. of Wins',range=c(0,40)))
+#graph1
+
+#Wins distribution of SPAIN by age
+mysubset <- subset(wins15country, winner_ioc %in% "ESP")
+#table(round(mysubset$winner_age, 0))
+o <- round(mysubset$winner_age, 0)
+#hist(o, ylim = c(0, 30), breaks = seq(15, 39, 3), xaxp=c(15, 39, 8), main = "Winners age distribution of Spain by age", xlab = "Ages", ylab = "No. of winners", col="Yellow")
+graph2 <- plot_ly(x = o, type = "histogram", marker= list(color="Blue"), name = "Winners age distribution of Spain by age")%>%layout(xaxis = list(title = 'Winner Age'), yaxis = list(title = 'NO. of Wins',range=c(0,40)))
+#graph2
+
+#Wins distribution of UNITED KINGDOM by age
+mysubset <- subset(wins15country, winner_ioc %in% "GBR")
+#table(round(mysubset$winner_age, 0))
+o <- round(mysubset$winner_age, 0)
+#hist(o, ylim = c(0, 10), breaks = seq(15, 39, 3), xaxp=c(15, 39, 8), main = "Winners age distribution of United Kingdom by age", xlab = "Ages", ylab = "No. of winners", col="Grey")
+graph3 <- plot_ly(x = o, type = "histogram", marker= list(color="Green"), name = "Winners age distribution of UK by age")%>%layout(xaxis = list(title = 'Winner Age'), yaxis = list(title = 'NO. of Wins',range=c(0,40)))
+#graph3
+
+#Wins distribution of SWITZERLAND by age
+mysubset <- subset(wins15country, winner_ioc %in% "SUI")
+#table(round(mysubset$winner_age, 0))
+o <- round(mysubset$winner_age, 0)
+#hist(o, ylim = c(0, 20), breaks = seq(15, 39, 3), xaxp=c(15, 39, 8), main = "Winners age distribution of Switzerland by age", xlab = "Ages", ylab = "No. of winners", col="Red")
+graph4 <- plot_ly(x = o, type = "histogram", marker= list(color="Yellow"), name = "Winners age distribution of Switzerland by age")%>%layout(xaxis = list(title = 'Winner Age'), yaxis = list(title = 'NO. of Wins',range=c(0,40)))
+#graph4
+
+#Wins distribution of SERBIA by age
+mysubset <- subset(wins15country, winner_ioc %in% "SRB")
+#table(round(mysubset$winner_age, 0))
+o <- round(mysubset$winner_age, 0)
+#hist(o, ylim = c(0, 20), breaks = seq(15, 39, 3), xaxp=c(15, 39, 8), main = "Winners age distribution of Serbia by age", xlab = "Ages", ylab = "No. of winners", col="Orange")
+graph5 <- plot_ly(x = o, type = "histogram", marker= list(color="Orange"), name = "Winners age distribution of Serbia by age")%>%layout(xaxis = list(title = 'Winner Age'), yaxis = list(title = 'NO. of Wins',range=c(0,40)))
+#graph5
+
+o <- round(wins15country$winner_age, 0)
+graph6 <- plot_ly(x = o, type = "histogram", marker= list(color="Lime"), name = "Winners age distribution of five countries by age")%>%layout(xaxis = list(title = 'Winner Age'), yaxis = list(title = 'NO. of Wins',range=c(0,40)))
+#hist(o, ylim = c(0, 100), breaks = seq(15, 39, 3), xaxp=c(15, 39, 8), main = "Winners age distribution of five countries by age", xlab = "Ages", ylab = "No. of winners", col="Light Blue")
+
+
+finalgraph <- subplot(graph1, graph2, graph3, graph4, graph5,graph6, nrows = 3, shareY = TRUE, shareX = TRUE) %>% 
+  layout(title = "Winners age Distribution of Countries by Age", xaxis = list(title = 'Winners age '), yaxis = list(title = 'NO. of Wins'))
+finalgraph
+
+```
+### Distribution of winners age countrywise
+
+```{r}
+plot_ly(data = wins15country, y = wins15country$winner_age,x = wins15country$winner_ioc, type = "box", color = wins15country$winner_ioc)%>% layout(title= "Distribution of age of the winners of the Countries with
+                                                                                                                                                   most title during the period", xaxis = list(title = 'Countries'), yaxis = list(title = 'Ages'))
+
+
+
+```
+
+### Central Limit Theorem
+```{r}
+
+sample23 <- 250
+
+xbar31 = numeric(250)
+xbar32 = numeric(250)
+xbar33 = numeric(250)
+xbar34 = numeric(250)
+for (i in 1:250) {
+  xbar31[i] <- mean(sample(atpdatset$minutes, 
+                           size = 10, replace = TRUE))
+}
+minutes.data1 <- data.frame(xbar31)
+#minutes.data1
+p1 <- plot_ly(minutes.data1, x= ~minutes.data1$xbar31, type = 'histogram',histnorm = 'probability', name = "Sample size = 10")%>%
+  layout(xaxis = list(title = 'xbar',range=c(0,200)), yaxis = list(title = 'density',range=c(0,0.2)))
+
+for (i in 1:250) {
+  xbar32[i] <- mean(sample(atpdatset$minutes, 
+                           size = 20, replace = TRUE))
+}
+minutes.data2 <- data.frame(xbar32)
+p2 <- plot_ly(minutes.data2, x= ~minutes.data2$xbar32, type = 'histogram',histnorm = 'probability', name = "Sample size = 20")%>%
+  layout(xaxis = list(title = 'xbar',range=c(0,200)), yaxis = list(title = 'density',range=c(0,0.2)))
+
+
+for (i in 1:250) {
+  xbar33[i] <- mean(sample(atpdatset$minutes, 
+                           size = 30, replace = TRUE))
+}
+minutes.data3 <- data.frame(xbar33)
+p3 <- plot_ly(minutes.data3, x= ~minutes.data3$xbar33, type = 'histogram',histnorm = 'probability',name = "Sample size = 30")%>%
+  layout(xaxis = list(title = 'xbar',range=c(0,200)), yaxis = list(title = 'density',range=c(0,0.2)))
+
+
+for (i in 1:250) {
+  xbar34[i] <- mean(sample(atpdatset$minutes, 
+                           size = 40, replace = TRUE))
+}
+minutes.data4 <- data.frame(xbar34)
+p4 <- plot_ly(minutes.data4, x= ~minutes.data4$xbar34, type = 'histogram',histnorm = 'probability',name = "Sample size = 40")%>%
+  layout(xaxis = list(title = 'xbar',range=c(0,200)), yaxis = list(title = 'density',range=c(0,0.2)))
+
+
+p <- subplot(p1, p2, p3, p4, nrows = 2, shareY = TRUE, shareX = TRUE)%>%layout(title = 'Central Limit Theorem')
+annotations = list( 
+  list(x= 0.2, y = 1,text = "Sample Size =10",xref = "paper", yref = "paper",  xanchor = "center",  yanchor = "bottom", showarrow = FALSE ),list(x= 0.8, y = 1,text = "Sample Size =20",xref = "paper", yref = "paper",  xanchor = "center",  yanchor = "bottom", showarrow = FALSE ),list(x= 0.2, y = 0.45,text = "Sample Size =30",xref = "paper", yref = "paper",  xanchor = "center",  yanchor = "bottom", showarrow = FALSE ),list(x= 0.8, y = 0.45,text = "Sample Size =40",xref = "paper", yref = "paper",  xanchor = "center",  yanchor = "bottom", showarrow = FALSE )
+  )
+p <- p%>%layout(annotations = annotations) 
+
+p
+
+
+```
+
+### Simple random sampling for atpdataset for Minutes attriubutes and number of aces by the winner
+
+```{r}
+#names(atpdatset)
+#nrow(atpdatset)
+
+#table(atpdatset$winner_ioc)
+
+m1 <- mean(atpdatset$w_ace)
+m2 <- mean(atpdatset$minutes)
+sd1 <- sd(atpdatset$minutes)
+sd2 <- sd(atpdatset$w_ace)
+
+c1 <- paste("Mean=",m1,"Sd=",sd1)
+c2 <- paste("Mean=",m2,"Sd=",sd2)
+
+s1 <- plot_ly(atpdatset, x= ~atpdatset$minutes, type = 'histogram',histnorm = 'probability', name = "Population  Distribution for match duration")%>%
+  layout(xaxis = list(title = 'Distribution of Match Duration'), yaxis = list(title = 'Frequency',range=c(0,0.40)))
+s2 <- plot_ly(atpdatset, x= ~atpdatset$w_ace, type = 'histogram',histnorm = 'probability', name = " Population Distribution for Winners ace")%>%
+  layout(xaxis = list(title = 'Distribution of Winners Aces'), yaxis = list(title = 'Frequency',range=c(0,0.40)))
+
+s <- srswr(70,nrow(atpdatset))
+#s[s!=0]
+rows <- (1:nrow(atpdatset))[s!=0]
+rows <- rep(rows, s[s!=0])
+#rows
+sample.1 <- atpdatset[rows,]
+
+#table(sample.1$winner_ioc)
+
+m3<- mean(sample.1$w_ace)
+m4<-mean(sample.1$minutes)
+sd3<-sd(sample.1$minutes)
+sd4<-sd(sample.1$w_ace)
+
+c3 <- paste("Mean=",m3,"Sd=",sd3)
+c4 <- paste("Mean=",m4,"Sd=",sd4)
+s3 <- plot_ly(sample.1, x= ~sample.1$minutes, type = 'histogram', histnorm = 'probability',name = "Sample  Distribution for match duration")%>%
+  layout(xaxis = list(title = 'Distribution of Match Duration'), yaxis = list(title = 'Frequency',range=c(0,0.40)))
+
+s4 <- plot_ly(sample.1, x= ~sample.1$w_ace, type = 'histogram',histnorm = 'probability', name = "Sample  Distribution for Winners aces")%>%
+  layout(xaxis = list(title = 'Distribution of Winner Aces'), yaxis = list(title = 'Frequency',range=c(0,0.40)))
+
+s <- subplot(s1, s2, s3, s4, nrows = 2, shareX = TRUE,shareY = TRUE)%>%layout(title = 'Simple random Sampling')
+annotations = list( 
+  list(x= 0.2, y = 1,text = paste("Population",c2),xref = "paper", yref = "paper",  xanchor = "center",  yanchor = "bottom", showarrow = FALSE ),list(x= 0.8, y = 1,text = paste("Population",c1),xref = "paper", yref = "paper",  xanchor = "center",  yanchor = "bottom", showarrow = FALSE ),list(x= 0.2, y = 0.45,text = paste("Sample",c4) ,xref = "paper", yref = "paper",  xanchor = "center",  yanchor = "bottom", showarrow = FALSE ),list(x= 0.8, y = 0.45,text = paste("Sample",c3),xref = "paper", yref = "paper",  xanchor = "center",  yanchor = "bottom", showarrow = FALSE )
+)
+s <- s%>%layout(annotations = annotations) 
+s
+```
+
+### Systematic Sampling
+```{r}
+set.seed(2692)
+
+m5<-mean(atpdatset$w_ace)
+m6<-mean(atpdatset$minutes)
+sd6<-sd(atpdatset$minutes)
+sd5<-sd(atpdatset$w_ace)
+
+c5 <- paste("Mean=",m5,"Sd=",sd5)
+c6 <- paste("Mean=",m6,"Sd=",sd6)
+
+ssa <- plot_ly(atpdatset, x= ~atpdatset$minutes, type = 'histogram',histnorm = 'probability',name = "Population Distribution for match duration")%>%
+  layout(xaxis = list(title = 'Distribution of Match Duration'), yaxis = list(title = 'Frequency',range=c(0,0.5)))
+ssb <- plot_ly(atpdatset, x= ~atpdatset$w_ace, type = 'histogram',histnorm = 'probability',name = "Population Distribution for Winners aces")%>%
+  layout(xaxis = list(title = 'Distribution of Winners Aces'), yaxis = list(title = 'Frequency',range=c(0,0.5)))
+N <- nrow(atpdatset)
+n1 <- 40
+
+
+
+k1 <- ceiling(N/n1)
+
+
+r1 <- sample(k1,1)
+
+ss1 <- seq(r1,by = k1, length = n1)
+#ss1
+
+sample.2 <- atpdatset[ss1,]
+#sample.2
+#table(sample.2$winner_ioc)
+m7<-mean(sample.2$w_ace,na.rm=TRUE)
+#m7
+m8<-mean(sample.2$minutes,na.rm=TRUE)
+sd8<-sd(sample.2$minutes,na.rm=TRUE)
+sd7<-sd(sample.2$w_ace,na.rm=TRUE)
+
+c7 <- paste("Mean=",m7,"Sd=",sd7)
+c8 <- paste("Mean=",m8,"Sd=",sd8)
+
+ssc <- plot_ly(sample.2, x= ~sample.2$minutes, type = 'histogram', histnorm = 'probability',name = "Sample Distribution for match duration")%>%
+  layout(xaxis = list(title = 'Distribution of Match Duration'), yaxis = list(title = 'Frequency',range=c(0,0.50)))
+ssd <- plot_ly(sample.2, x= ~sample.2$w_ace, type = 'histogram',histnorm = 'probability',name = "Sample Distribution for Winners aces")%>%
+  layout(xaxis = list(title = 'Distribution of Winners Aces'), yaxis = list(title = 'Frequency',range=c(0,0.50)))
+
+ss <- subplot(ssa, ssb, ssc, ssd, nrows = 2, shareX = TRUE,shareY = TRUE)%>%layout(title = 'Systematic Sampling')
+annotations = list( 
+  list(x= 0.2, y = 1,text = paste("Population",c6),xref = "paper", yref = "paper",  xanchor = "center",  yanchor = "bottom", showarrow = FALSE ),list(x= 0.8, y = 1,text = paste("Population",c5),xref = "paper", yref = "paper",  xanchor = "center",  yanchor = "bottom", showarrow = FALSE ),list(x= 0.2, y = 0.45,text = paste("Sample",c8) ,xref = "paper", yref = "paper",  xanchor = "center",  yanchor = "bottom", showarrow = FALSE ),list(x= 0.8, y = 0.45,text = paste("Sample",c7),xref = "paper", yref = "paper",  xanchor = "center",  yanchor = "bottom", showarrow = FALSE )
+)
+ss <- ss%>%layout(annotations = annotations) 
+ss
+```
+
+### Stratified sampling
+```{r}
+set.seed(2692)
+
+strs1<- table(atpdatset$winner_ioc)
+#strs1
+
+strso <- strs1[order(strs1, decreasing = TRUE)]
+#strso
+
+top4 <- head(strso, 4)
+#top4 
+
+top5names <- names(top4)
+#top5names
+
+
+
+subset1 <- atpdatset[atpdatset$winner_ioc %in% top5names,]
+#subset1
+
+
+mst1 <- mean(subset1$minutes)
+sdst1 <- sd(subset1$minutes)
+mst2 <- mean(subset1$w_ace)
+sdst2<- sd(subset1$w_ace)
+
+cst1 <- paste("Mean  of subset_winners ace=",mst1,"Sd of subset_winners ace=",sdst1)
+cst2 <- paste("Mean of subset_duration of match=",mst2,"Sd of subset_duration of match=",sdst2)
+
+freq1 <- table(subset1$winner_ioc)
+#freq1
+st.sizes <- round(8* freq1/sum(freq1))
+#st.sizes
+#st.sizes[st.sizes!=0]
+st.1 <- strata(subset1, stratanames = c("winner_ioc"), size = rep(2,4), method = "srswor", description = TRUE)
+
+st1.sample4 <- getdata(subset1, st.1)
+
+
+
+mst3<-mean(st1.sample4$minutes)
+sdst3<-sd(st1.sample4$minutes)
+
+mst4<-mean(st1.sample4$w_ace)
+sdst4<-sd(st1.sample4$w_ace)
+
+cst3 <- paste("Mean of strata 1_duration of minutes=",mst3,"Sd of strata 1_duration of minutes=",sdst3)
+cst4 <- paste("Mean of strata 1_winners ace=",mst4,"Sd  of strata 1_winners ace=",sdst4)
+
+cat("\n",cst1,"\n",cst4,"\n",cst2,"\n",cst3)
+
+```
+
+### Percentage of Breakpoints saved against the Breakpoints faced of the players having tournament wins more than 7
+
+```{r}
+library(tidyverse)
+df <- atpdatset
+
+df <- as_tibble(df)
+
+dfbp <- df %>%group_by(winner_name) %>% summarise(bp_faced = sum(w_bpFaced), bp_saved = sum(w_bpSaved), tournament_won = n())%>%dplyr::filter(tournament_won>7)%>%
+  mutate(Perc_bp_saved = (bp_saved/bp_faced * 100))  %>%
+  select(winner_name,tournament_won, bp_saved, bp_faced,Perc_bp_saved )%>% arrange(desc(Perc_bp_saved))%>%head(10)
+
+dfbp$winner_name <- factor(dfbp$winner_name, levels = unique(dfbp$winner_name)[order(dfbp$Perc_bp_saved, decreasing = TRUE)])
+
+fig <- dfbp %>% plot_ly()
+fig <- fig %>% add_trace(x = ~dfbp$winner_name, y = ~dfbp$bp_saved, type = 'bar',
+                         text = (dfbp$bp_saved), textposition = 'auto',hovertext = dfbp$Perc_bp_saved,
+                         marker = list(color = 'rgb(158,202,225)',
+                                       line = list(color = 'rgb(8,48,107)', width = 1.5)),name = "Breakpoints saved")
+fig <- fig %>% add_trace(x = ~dfbp$winner_name, y = ~dfbp$bp_faced, type = 'bar',
+                         text = dfbp$bp_faced, textposition = 'auto',hovertext = dfbp$Perc_bp_saved,
+                         marker = list(color = 'rgb(58,200,225)',
+                                       line = list(color = 'rgb(8,48,107)', width = 1.5)),name = "Breakpoints faced")
+
+fig <- fig %>% layout(title = "Percentage of BP saved by players",
+                      barmode = 'group',
+                      xaxis = list(title = ""),
+                      yaxis = list(title = ""))
+
+
+
+fig
+```
+
+### Wordcloud
+
+```{r, message=FALSE, warning=FALSE}
+
+dfd <- atpdatset
+
+dfd <- as_tibble(dfd)
+
+dfdp <- dfd %>%group_by(winner_name) %>% summarise(tournament_won = n())
+
+set.seed(2312)
+
+wordcloud(words = dfdp$winner_name, freq = dfdp$tournament_won, min.freq = 1, max.words=200, random.order=FALSE, rot.per=0.35,colors=brewer.pal(8, "Dark2"),scale=c(3.5,0.25))
+
+```
